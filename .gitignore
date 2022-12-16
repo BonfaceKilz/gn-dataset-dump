@@ -1,0 +1,22 @@
+# Ignore all compiled files
+*.fasl
+*.ufsl
+*.fas
+*.lib
+*.x86f
+*.sse2f
+*.dfsl
+
+# Ignore all logs and history files
+*.log
+*.history
+
+# Ignore all editor backup files
+*~
+
+# Ignore Quicklisp files
+*.gz
+
+# Ignore SLIME files
+*#
+*.#*
