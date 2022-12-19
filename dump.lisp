@@ -55,12 +55,12 @@ being the first row."
       (lmdb:with-txn (:write t)
 	(lmdb:put db name sample-data)))))
 
-
 
-;; WIP Dumping Data using rdf
+;; Dumping Data using rdf
 
-(fetch-results-from-sql
- "SELECT * FROM
+;; Simple Example
+(let ((result (fetch-results-from-sql
+	       "SELECT * FROM
 (SELECT DISTINCT st.Name as 'Name', ifnull(pd.value, 'x') as 'Value',
 ifnull(ps.error, 'x') as 'SE', ifnull(ns.count, 'x') as 'Count', ps.StrainId as 'StrainId'
 FROM PublishFreeze pf JOIN PublishXRef px ON px.InbredSetId = pf.InbredSetId
@@ -73,5 +73,8 @@ JOIN
 FROM CaseAttributeXRefNew cxref LEFT JOIN CaseAttribute ca
 ON ca.Id = cxref.CaseAttributeId
 GROUP BY InbredSetId, cxref.StrainId) B ON A.StrainId = B.StrainId;"
- ;; TODO: Fetch this from RDF
- (list 35))
+	       ;; TODO: Fetch this from RDF
+	       (list 35))))
+  (if result
+      (store-sample-data-in-lmdb "sample-data-collection"
+				 "BXD101" test)))
