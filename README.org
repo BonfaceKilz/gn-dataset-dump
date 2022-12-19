@@ -1,0 +1,3 @@
+* Introduction
+
+This repository contains Common Lisp code for exporting sample data from a MariaDB database and storing it in an LMDB database.  The data to be exported is identified using RDF and will later be used in fetched directly from GN3.
