@@ -47,14 +47,12 @@ being the first row."
 	   (query (dbi:execute query params)))
       (dbi:fetch-all query))))
 
-
 (defun store-sample-data-in-lmdb (db-name name sample-data)
   (lmdb:with-env
-      (*lmdb-env*
-       (assoc-ref 'lmdb-path *connection-settings*)
-       :if-does-not-exist :create)
+      (lmdb:*env* (assoc-ref 'lmdb-path *connection-settings*)
+		  :if-does-not-exist :create)
     (let ((db (lmdb:get-db db-name :value-encoding :utf-8)))
-      (with-txn (:write t)
+      (lmdb:with-txn (:write t)
 	(lmdb:put db name sample-data)))))
 
 
