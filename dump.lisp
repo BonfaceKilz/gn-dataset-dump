@@ -1,5 +1,7 @@
 (ql:quickload "cl-dbi")
+(ql:quickload "alexandria")
 (ql:quickload "lmdb")
+(use-package 'alexandria)
 (use-package 'cl-dbi 'lmdb)
 
 
@@ -18,6 +20,20 @@
   "Given an association list ALIST, return the value associated with
 KEY."
   (cdr (assoc key alist)))
+
+(defun plists-to-csv (plists)
+  "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
+being the first row."
+  (let* ((keys (mapcar #'car (alexandria:plist-alist
+			      (car plists)))) ; get the keys from the first plist
+	 (headers (format nil "~{~A~^,~}" keys))
+	 (rows (mapcar (lambda (it)
+			 (format nil "~{~A~^,~}"
+				 (loop for (key value) on it
+				       by #'cddr
+				       collect value)))
+		       plists)))
+    (format nil "~A~%~{~A~%~}" headers rows)))
 
 (defun fetch-results-from-sql (statement &optional params)
   (dbi:with-connection
