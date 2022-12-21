@@ -70,7 +70,7 @@ JOIN PublishData pd ON pd.Id = px.DataId JOIN Strain st ON pd.StrainId = st.Id
 LEFT JOIN PublishSE ps ON ps.DataId = pd.Id AND ps.StrainId = pd.StrainId
 LEFT JOIN NStrain ns ON ns.DataId = pd.Id AND ns.StrainId = pd.StrainId
 WHERE px.PhenotypeId = ? ORDER BY st.Name) A
-JOIN
+LEFT JOIN
 (SELECT cxref.StrainId as StrainId, group_concat(ca.Name, '=', cxref.Value) as \"CaseAttributes\"
 FROM CaseAttributeXRefNew cxref LEFT JOIN CaseAttribute ca
 ON ca.Id = cxref.CaseAttributeId
