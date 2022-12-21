@@ -2,6 +2,7 @@
   (:use :common-lisp  :lmdb)
   (:import-from :alexandria :plist-alist)
   (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all)
+  (:import-from :trivia :match)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t))
 
 (in-package :dump)
@@ -18,10 +19,12 @@
 
 
 ;; Some helper functions
-(defun assoc-ref (key alist)
+(defun assoc-ref (alist key &key (test #'equalp))
   "Given an association list ALIST, return the value associated with
 KEY."
-  (cdr (assoc key alist)))
+  (match (assoc key alist :test test)
+    ((cons _ value) value)))
+
 
 (defun plists->csv (plists)
   "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
@@ -40,19 +43,19 @@ being the first row."
 (defun fetch-results-from-sql (statement &optional params)
   (with-connection
       (conn :mysql
-	    :database-name (assoc-ref 'sql-database *connection-settings*)
-	    :host (assoc-ref 'sql-host *connection-settings*)
-	    :port (assoc-ref 'sql-port *connection-settings*)
-	    :username (assoc-ref 'sql-username *connection-settings*)
-	    :password (assoc-ref 'sql-password *connection-settings*))
+	    :database-name (assoc-ref *connection-settings* 'sql-database)
+	    :host (assoc-ref *connection-settings* 'sql-host)
+	    :port (assoc-ref *connection-settings* 'sql-port)
+	    :username (assoc-ref *connection-settings* 'sql-username)
+	    :password (assoc-ref *connection-settings* 'sql-password))
     (let* ((query (prepare conn statement))
 	   (query (execute query params)))
       (fetch-all query))))
 
 (defun store-sample-data-in-lmdb (db-name name sample-data)
   (with-env
-      (*env* (assoc-ref 'lmdb-path *connection-settings*)
-		  :if-does-not-exist :create)
+      (*env* (assoc-ref *connection-settings* 'lmdb-path)
+	     :if-does-not-exist :create)
     (let ((db (get-db db-name :value-encoding :utf-8)))
       (with-txn (:write t)
 	(put db name sample-data)))))
