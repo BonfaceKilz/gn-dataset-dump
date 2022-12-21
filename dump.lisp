@@ -1,9 +1,13 @@
 (defpackage :dump
   (:use :common-lisp  :lmdb)
-  (:import-from :alexandria :plist-alist)
-  (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all)
-  (:import-from :trivia :match)
-  (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t))
+  (:import-from :alexandria :once-only
+		:plist-alist :with-gensyms)
+  (:import-from :ironclad :with-octet-input-stream :with-octet-output-stream
+   :with-digesting-stream :digest-length)
+  (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
+  (:import-from :trivia :lambda-match :match)
+  (:import-from :trivial-utf-8 :string-to-utf-8-bytes)
+  (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets))
 
 (in-package :dump)
 
@@ -17,6 +21,9 @@
        "~/projects/oqo-dump-genenetwork-database/fix-sql-queries/conn.scm")
     (read stream)))
 
+(defvar *blob-hash-digest*
+  :sha256)
+
 
 ;; Some helper functions
 (defun assoc-ref (alist key &key (test #'equalp))
@@ -24,7 +31,6 @@
 KEY."
   (match (assoc key alist :test test)
     ((cons _ value) value)))
-
 
 (defun plists->csv (plists)
   "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
@@ -52,13 +58,106 @@ being the first row."
 	   (query (execute query params)))
       (fetch-all query))))
 
-(defun store-sample-data-in-lmdb (db-name name sample-data)
-  (with-env
-      (*env* (assoc-ref *connection-settings* 'lmdb-path)
-	     :if-does-not-exist :create)
-    (let ((db (get-db db-name :value-encoding :utf-8)))
-      (with-txn (:write t)
-	(put db name sample-data)))))
+(defmacro with-sampledata-db ((db database-directory &key write) &body body)
+  "Create a new LMDB database in DATABASE-DIRECTORY and execute BODY
+with a transaction open on DB."
+  (with-gensyms (env)
+    (once-only (database-directory write)
+      `(with-env (,env ,database-directory
+		       :if-does-not-exist :create
+		       :map-size (* 100 1024 1024))
+	 (let ((,db (get-db nil :env ,env :value-encoding :utf-8)))
+	   (with-txn (:env ,env :write ,write)
+	     ,@body))))))
+
+
+;; Hash functions and operations on bytevectors
+
+(defun write-bytevector-with-length (bv stream)
+  (write-sequence (uint64-to-octets (length bv)) stream)
+  (write-sequence bv stream))
+
+(defun hash-vector-length (hash-vector)
+  "Return the number of hashes in HASH-VECTOR."
+  (/ (length hash-vector)
+     (digest-length *blob-hash-digest*)))
+
+(defun bv-hash (bv &optional header)
+  "Return the hash of a bytevector BV and optionally write a HEADER to
+the hash stream"
+  (with-digesting-stream (stream *blob-hash-digest*)
+    ;; Write bytevector
+    (write-bytevector-with-length bv stream)
+    ;; Write header
+    (lambda-match
+      ((cons key value)
+       (write-bytevector-with-length (string-to-utf-8-bytes key)
+				     stream)
+       (write-bytevector-with-length
+	(etypecase value
+	  (string (string-to-utf-8-bytes value))
+	  ((unsigned-byte 64) (uint64-to-octets value))
+	  ((vector (unsigned-byte 8)) value))
+	stream)))))
+
+(defun hash-vector-ref (hash-vector n)
+  "Return the Nth hash in HASH-VECTOR."
+  (let ((hash-length (digest-length *blob-hash-digest*)))
+    (make-array hash-length
+		:element-type '(unsigned-byte 8)
+		:displaced-to hash-vector
+		:displaced-index-offset (* n hash-length))))
+
+
+;; Matrix Data Structures and associated helper functions
+
+(defstruct sampledata matrix header)
+
+(defun sampledata-db-get (db key)
+  "Get bytevector with KEY from sampledata DB.  KEY may be a hash or a
+string.  If it is a string, it is encoded into octets before querying
+the database."
+  (g3t db (if (stringp key)
+	      (string-to-utf-8-bytes key)
+	      key)))
+
+
+
+(defun sampledata-db-put (db bv header)
+  "Put BV - a bytevector - into DB.  Associate HEADER, representing the
+name of the columns, with BV.  Return the hash."
+  (let ((hash (bv-hash bv header)))
+    (unless (sampledata-db-get db hash)
+      (put db hash bv)
+      ;; FIX THIS!
+      (put db "header" header))))
+
+(defun sampledata-db-matrix-put (db matrix)
+  "Put sampledata MATRIX into DB and return the hash"
+  (let ((matrix (sampledata-matrix matrix)))
+    (match (array-dimensions matrix)
+      ((list nrows ncols)
+       (
+	;; TODO
+	)))))
+
+(defun matrix-row (matrix n)
+  "Return the Nth row of MATRIX."
+  (let ((ncols (array-dimension matrix 1)))
+    (make-array ncols
+		:element-type (array-element-type matrix)
+		:displaced-to matrix
+		:displaced-index-offset (* n ncols))))
+
+
+(defun matrix-column (matrix n)
+  "Return the Nth column of MATRIX."
+  (let ((column (make-array (array-dimension matrix 0))))
+    (dotimes (i (length column))
+      (setf (aref column i)
+	    (aref matrix i n)))
+    column))
+
 
 
 ;; Dumping Data using rdf
