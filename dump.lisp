@@ -21,7 +21,7 @@
 KEY."
   (cdr (assoc key alist)))
 
-(defun plists-to-csv (plists)
+(defun plists->csv (plists)
   "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
 being the first row."
   (let* ((keys (mapcar #'car (alexandria:plist-alist
@@ -77,4 +77,4 @@ GROUP BY InbredSetId, cxref.StrainId) B ON A.StrainId = B.StrainId;"
 	       (list 35))))
   (if result
       (store-sample-data-in-lmdb "sample-data-collection"
-				 "BXD101" test)))
+				 "BXD101" (plists->csv result))))
