@@ -160,11 +160,12 @@ name of the columns, with BV.  Return the hash."
 
 
 
-;; Dumping Data using rdf
+;; Dumping an Retriewing Data Examples
 
-;; Simple Example
-(let ((result (fetch-results-from-sql
-	       "SELECT * FROM
+(with-sampledata-db
+    (db "lmdb-test2/" :write t)
+  (put db "BXD105:10007" (plists->csv (fetch-results-from-sql
+				       "SELECT * FROM
 (SELECT DISTINCT st.Name as 'Name', ifnull(pd.value, 'x') as 'Value',
 ifnull(ps.error, 'x') as 'SE', ifnull(ns.count, 'x') as 'Count', ps.StrainId as 'StrainId'
 FROM PublishFreeze pf JOIN PublishXRef px ON px.InbredSetId = pf.InbredSetId
@@ -173,12 +174,13 @@ LEFT JOIN PublishSE ps ON ps.DataId = pd.Id AND ps.StrainId = pd.StrainId
 LEFT JOIN NStrain ns ON ns.DataId = pd.Id AND ns.StrainId = pd.StrainId
 WHERE px.PhenotypeId = ? ORDER BY st.Name) A
 LEFT JOIN
-(SELECT cxref.StrainId as StrainId, group_concat(ca.Name, '=', cxref.Value) as \"CaseAttributes\"
+(SELECT cxref.StrainId as StrainId, group_concat(ca.Name, '=', cxref.Value) as 'CaseAttributes'
 FROM CaseAttributeXRefNew cxref LEFT JOIN CaseAttribute ca
 ON ca.Id = cxref.CaseAttributeId
 GROUP BY InbredSetId, cxref.StrainId) B ON A.StrainId = B.StrainId;"
-	       ;; TODO: Fetch this from RDF
-	       (list 35))))
-  (if result
-      (store-sample-data-in-lmdb "sample-data-collection"
-				 "BXD101" (plists->csv result))))
+				       (list 35)))))
+
+
+(with-sampledata-db
+    (db "lmdb-test2/" :write t)
+  (print (g3t db "BXD105:10007")))
