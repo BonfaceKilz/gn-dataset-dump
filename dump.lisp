@@ -1,8 +1,10 @@
-(ql:quickload "cl-dbi")
-(ql:quickload "alexandria")
-(ql:quickload "lmdb")
-(use-package 'alexandria)
-(use-package 'cl-dbi 'lmdb)
+(defpackage :dump
+  (:use :common-lisp  :lmdb)
+  (:import-from :alexandria :plist-alist)
+  (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all)
+  (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t))
+
+(in-package :dump)
 
 
 ;; ENV SETTINGS
@@ -24,7 +26,7 @@ KEY."
 (defun plists->csv (plists)
   "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
 being the first row."
-  (let* ((keys (mapcar #'car (alexandria:plist-alist
+  (let* ((keys (mapcar #'car (plist-alist
 			      (car plists)))) ; get the keys from the first plist
 	 (headers (format nil "~{~A~^,~}" keys))
 	 (rows (mapcar (lambda (it)
@@ -36,24 +38,24 @@ being the first row."
     (format nil "~A~%~{~A~%~}" headers rows)))
 
 (defun fetch-results-from-sql (statement &optional params)
-  (dbi:with-connection
+  (with-connection
       (conn :mysql
 	    :database-name (assoc-ref 'sql-database *connection-settings*)
 	    :host (assoc-ref 'sql-host *connection-settings*)
 	    :port (assoc-ref 'sql-port *connection-settings*)
 	    :username (assoc-ref 'sql-username *connection-settings*)
 	    :password (assoc-ref 'sql-password *connection-settings*))
-    (let* ((query (dbi:prepare conn statement))
-	   (query (dbi:execute query params)))
-      (dbi:fetch-all query))))
+    (let* ((query (prepare conn statement))
+	   (query (execute query params)))
+      (fetch-all query))))
 
 (defun store-sample-data-in-lmdb (db-name name sample-data)
-  (lmdb:with-env
-      (lmdb:*env* (assoc-ref 'lmdb-path *connection-settings*)
+  (with-env
+      (*env* (assoc-ref 'lmdb-path *connection-settings*)
 		  :if-does-not-exist :create)
-    (let ((db (lmdb:get-db db-name :value-encoding :utf-8)))
-      (lmdb:with-txn (:write t)
-	(lmdb:put db name sample-data)))))
+    (let ((db (get-db db-name :value-encoding :utf-8)))
+      (with-txn (:write t)
+	(put db name sample-data)))))
 
 
 ;; Dumping Data using rdf
