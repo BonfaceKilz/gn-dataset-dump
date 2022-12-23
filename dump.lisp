@@ -1,7 +1,8 @@
 (defpackage :dump
   (:use :common-lisp  :lmdb)
-  (:import-from :alexandria :once-only
-		:plist-alist :with-gensyms)
+  (:import-from :alexandria :once-only :iota
+   :plist-alist :with-gensyms)
+  (:import-from :listopia :all :any :split-at)
   (:import-from :ironclad :with-octet-input-stream :with-octet-output-stream
    :with-digesting-stream :digest-length)
   (:import-from :str
@@ -10,7 +11,8 @@
   (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
   (:import-from :trivia :lambda-match :match)
   (:import-from :trivial-utf-8 :string-to-utf-8-bytes)
-  (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets))
+  (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
+		:with-cursor :cursor-first :do-cursor :cursor-del))
 
 (in-package :dump)
 
@@ -86,7 +88,7 @@ of HASH."
   "Write length of BV followed by BV itself to STREAM. The length is
 written as a little endian 64-bit unsigned integer."
   (write-sequence (uint64-to-octets (length bv)) stream)
-  (write-sequence bv stream))
+  (write-sequence (if (vectorp bv) (coerce bv 'list) bv) stream))
 
 (defun hash-vector-length (hash-vector)
   "Return the number of hashes in HASH-VECTOR."
@@ -124,7 +126,7 @@ the hash stream"
 
 ;; Matrix Data Structures and associated helper functions
 
-(defstruct sampledata matrix header)
+(defstruct sampledata matrix metadata)
 
 (defstruct sampledata-db-matrix
   db hash nrows ncols row-pointers column-pointers array transpose)
@@ -136,7 +138,6 @@ the hash stream"
 		:element-type (array-element-type matrix)
 		:displaced-to matrix
 		:displaced-index-offset (* n ncols))))
-
 
 (defun matrix-column (matrix n)
   "Return the Nth column of MATRIX."
@@ -211,7 +212,7 @@ name of the columns, with BV.  Return the hash."
 	    (write-sequence (sampledata-db-put db (matrix-row matrix i))
 			    stream))
 	  (dotimes (j ncols)
-	    (write-sequence (sampledata-db-put db (matrix-row matrix j))
+	    (write-sequence (sampledata-db-put db (matrix-column matrix j))
 			    stream)))
 	`(("nrows" . ,nrows)
 	  ("ncols" . ,ncols)))))))
@@ -241,12 +242,12 @@ name of the columns, with BV.  Return the hash."
 (defun sampledata-db-current-matrix (db)
   "Return the latest version of the matrix in DB."
   (let* ((read-optimized-blob (sampledata-db-get db (sampledata-db-get db "current")))
-	 (current-matrix-hash (sampldata-db-current-matrix-hash db))
+	 (current-matrix-hash (sampledata-db-current-matrix-hash db))
 	 (nrows (octets-to-uint64
 		 (sampledata-db-metadata-get db current-matrix-hash "nrows")))
 	 (ncols (octets-to-uint64
 		 (sampledata-db-metadata-get db current-matrix-hash "ncols"))))
-    (make-genotype-db-matrix
+    (make-sampledata-db-matrix
      :db db
      :nrows nrows
      :ncols ncols
@@ -273,53 +274,96 @@ name of the columns, with BV.  Return the hash."
 		      (aref row j)))))
 	  array))))
 
-;; (defmacro when (condition &rest body)
-;;   `(if ,condition (progn ,@body)))
-
 (defun sampledata-db-matrix-row-ref (matrix i)
   "Return the Ith row of sampledata db MATRIX."
   (let ((db (sampledata-db-matrix-db matrix))
 	(array (sampledata-db-matrix-array matrix)))
     (if array
 	(matrix-row array i)
-	(matrix-db-get
+	(sampledata-db-get
 	 db
 	 (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))
 
-(defun sampledata-db-matrix-column-ref (matrix i)
+(defun sampledata-db-matrix-column-ref (matrix j)
   "Return the Jth row of sampledata db MATRIX."
   (let ((db (sampledata-db-matrix-db matrix))
 	(transpose (sampledata-db-matrix-array matrix)))
-    (if array
-	(matrix-row array i)
-	(matrix-db-get
+    (if transpose
+	(matrix-row transpose j)
+	(sampledata-db-get
 	 db
-	 (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))
+	 (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))
+
+(defun collect-garbage (db)
+  "Delete all keys in DB that are not associated with a live hash."
+  (with-cursor (cursor db)
+    (cursor-first cursor)
+    (do-cursor (key value cursor)
+      (unless (live-key-p db key)
+        (cursor-del cursor)))))
 
 
+(defun hash-in-hash-vector-p (hash hash-vector)
+  "Return non-nil if HASH is in HASH-VECTOR. Else, return nil."
+  (find-index (lambda (i)
+                (equalp (hash-vector-ref hash-vector i)
+                        hash))
+              (hash-vector-length hash-vector)))
+
+(defun live-key-p (db key)
+  "Return non-nil if KEY is live. Else, return nil."
+  (or (equalp key (string-to-utf-8-bytes "current"))
+      (equalp key (string-to-utf-8-bytes "versions"))
+      (equalp key (sampledata-db-get db "current"))
+      (let ((versions-hash-vector (sampledata-db-get db "versions"))
+            (key-hash-prefix (make-array (digest-length *blob-hash-digest*)
+                                         :element-type '(unsigned-byte 8)
+                                         :displaced-to key)))
+        (or (hash-in-hash-vector-p key-hash-prefix versions-hash-vector)
+            (find-index (lambda (i)
+                          (hash-in-hash-vector-p
+                           key-hash-prefix
+                           (sampledata-db-get db (hash-vector-ref versions-hash-vector i))))
+                        (hash-vector-length versions-hash-vector))))))
+
+(defun import-into-sampledata-db (sampledata sampledata-database)
+  "Import SAMPLEDATA which is a sampledata-matrix object into
+SAMPLEDATA-DATABASE."
+  (with-sampledata-db (db sampledata-database :write t)
+    (let* ((hash (sampledata-db-matrix-put db sampledata))
+	   (db-matrix (sampledata-db-matrix db hash)))
+      ;; Read written data back and verify.
+      (unless (and (all (lambda (i)
+			  (equalp (matrix-row (sampledata-matrix sampledata) i)
+				  (sampledata-db-matrix-row-ref db-matrix i)))
+			(iota (sampledata-db-matrix-nrows db-matrix)))
+		   (all (lambda (i)
+			  (equalp (matrix-column (sampledata-matrix sampledata) i)
+				  (sampledata-db-matrix-column-ref db-matrix i)))
+			(iota (sampledata-db-matrix-ncols db-matrix))))
+	;; Roll back database updates.
+	(collect-garbage db)
+	;; Exit with error message.
+	(format *error-output*
+		"Rereading and verifying sampledata matrix written to \"~a\" failed.
+This is a bug. Please report it.
+"
+		sampledata-database)
+	(uiop:quit 1))
+      ;; Set the current matrix.
+      (setf (sampledata-db-current-matrix-hash db)
+	    hash))))
 
 
 ;; Dumping an Retriewing Data Examples
 
-(with-sampledata-db
-    (db "lmdb-test2/" :write t)
-  (put db "BXD105:10007" (plists->csv (fetch-results-from-sql
-				       "SELECT * FROM
-(SELECT DISTINCT st.Name as 'Name', ifnull(pd.value, 'x') as 'Value',
-ifnull(ps.error, 'x') as 'SE', ifnull(ns.count, 'x') as 'Count', ps.StrainId as 'StrainId'
-FROM PublishFreeze pf JOIN PublishXRef px ON px.InbredSetId = pf.InbredSetId
-JOIN PublishData pd ON pd.Id = px.DataId JOIN Strain st ON pd.StrainId = st.Id
-LEFT JOIN PublishSE ps ON ps.DataId = pd.Id AND ps.StrainId = pd.StrainId
-LEFT JOIN NStrain ns ON ns.DataId = pd.Id AND ns.StrainId = pd.StrainId
-WHERE px.PhenotypeId = ? ORDER BY st.Name) A
-LEFT JOIN
-(SELECT cxref.StrainId as StrainId, group_concat(ca.Name, '=', cxref.Value) as 'CaseAttributes'
-FROM CaseAttributeXRefNew cxref LEFT JOIN CaseAttribute ca
-ON ca.Id = cxref.CaseAttributeId
-GROUP BY InbredSetId, cxref.StrainId) B ON A.StrainId = B.StrainId;"
-				       (list 35)))))
+(import-into-sampledata-db
+ (make-sampledata
+  :matrix (make-array '(2 3)
+		      :initial-contents '((1 10 1) (1 0 1)))
+  :metadata '(("header" . "Value, Count, SE")))
+ "/tmp/test-sampledata/")
 
-
-(with-sampledata-db
-    (db "lmdb-test2/" :write t)
-  (print (g3t db "BXD105:10007")))
+;; Get current database
+(with-sampledata-db (db "/tmp/test-sampledata/" :write t)
+  (sampledata-db-current-matrix db))
