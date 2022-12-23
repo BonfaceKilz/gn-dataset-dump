@@ -69,7 +69,7 @@ with a transaction open on DB."
       `(with-env (,env ,database-directory
 		       :if-does-not-exist :create
 		       :map-size (* 100 1024 1024))
-	 (let ((,db (get-db nil :env ,env :value-encoding :utf-8)))
+	 (let ((,db (get-db nil :env ,env)))
 	   (with-txn (:env ,env :write ,write)
 	     ,@body))))))
 
