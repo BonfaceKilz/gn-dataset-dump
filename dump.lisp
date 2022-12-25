@@ -10,7 +10,7 @@
    :trim-right :words)
   (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
   (:import-from :trivia :lambda-match :match)
-  (:import-from :trivial-utf-8 :string-to-utf-8-bytes)
+  (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
 		:with-cursor :cursor-first :do-cursor :cursor-del))
 
@@ -88,7 +88,15 @@ of HASH."
   "Write length of BV followed by BV itself to STREAM. The length is
 written as a little endian 64-bit unsigned integer."
   (write-sequence (uint64-to-octets (length bv)) stream)
-  (write-sequence (if (vectorp bv) (coerce bv 'list) bv) stream))
+  (map (type-of bv)
+       (lambda (el)
+	 (cond
+	   ((integerp el) (write-byte el stream))
+	   ((stringp el) (write-utf-8-bytes el stream))
+	   ((floatp el)
+	    (write-utf-8-bytes
+	     (write-to-string el) stream))))
+       bv))
 
 (defun hash-vector-length (hash-vector)
   "Return the number of hashes in HASH-VECTOR."
