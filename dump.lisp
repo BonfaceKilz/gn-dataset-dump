@@ -168,9 +168,7 @@ the database."
 name of the columns, with BV.  Return the hash."
   (let ((hash (bv-hash bv metadata)))
     (unless (sampledata-db-get db hash)
-      (put db hash
-	   ;; This is already cpk-encoded!
-	   sampledata)
+      (put db hash bv)
       (mapc (lambda-match
 	      ((cons key value)
 	       (put db (metadata-key hash key) value)))
