@@ -93,21 +93,13 @@ of HASH."
   "Write length of BV followed by BV itself to STREAM. The length is
 written as a little endian 64-bit unsigned integer."
   (write-sequence (uint64-to-octets (length bv)) stream)
-  (map (type-of bv)
-       (lambda (el)
-	 (cond
-	   ((integerp el) (write-byte el stream))
-	   ((stringp el) (write-utf-8-bytes el stream))
-	   ((floatp el)
-	    (write-utf-8-bytes
-	     (write-to-string el) stream))))
-       bv))
+  ;; Accomodate strings and floats
+  (write-sequence (cpk:encode bv) stream))
 
 (defun hash-vector-length (hash-vector)
   "Return the number of hashes in HASH-VECTOR."
   (/ (length hash-vector)
      (digest-length *blob-hash-digest*)))
-
 
 (defun bv-hash (bv &optional metadata)
   "Return the hash of a bytevector BV and optionally write a HEADER to
