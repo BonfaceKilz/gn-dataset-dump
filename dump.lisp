@@ -1,5 +1,5 @@
 (defpackage :dump
-  (:use :common-lisp  :lmdb)
+  (:use :common-lisp  :lmdb :cpk)
   (:import-from :alexandria :once-only :iota
    :plist-alist :with-gensyms)
   (:import-from :listopia :all :any :split-at)
@@ -28,6 +28,10 @@
 
 (defvar *blob-hash-digest*
   :sha256)
+
+;; This enables to store objects with mixed types in the matrix.
+(defvar *cpk-encoding*
+  (cons #'cpk:encode (alexandria:compose #'cpk:decode #'mdb-val-to-octets)))
 
 
 ;; Some helper functions
@@ -71,7 +75,8 @@ with a transaction open on DB."
       `(with-env (,env ,database-directory
 		       :if-does-not-exist :create
 		       :map-size (* 100 1024 1024))
-	 (let ((,db (get-db nil :env ,env)))
+	 (let ((,db (get-db nil :env ,env
+				:value-encoding *cpk-encoding*)))
 	   (with-txn (:env ,env :write ,write)
 	     ,@body))))))
 
@@ -171,7 +176,9 @@ the database."
 name of the columns, with BV.  Return the hash."
   (let ((hash (bv-hash bv metadata)))
     (unless (sampledata-db-get db hash)
-      (put db hash bv)
+      (put db hash
+	   ;; This is already cpk-encoded!
+	   sampledata)
       (mapc (lambda-match
 	      ((cons key value)
 	       (put db (metadata-key hash key) value)))
