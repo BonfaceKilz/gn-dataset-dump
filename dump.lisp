@@ -188,10 +188,8 @@ name of the columns, with BV.  Return the hash."
 
 (defun sampledata-db-matrix (db hash)
   "Return the matrix identified by HASH from sampledata matrix DB."
-  (let ((nrows (octets-to-uint64
-		(sampledata-db-metadata-get db hash "nrows")))
-	(ncols (octets-to-uint64
-		(sampledata-db-metadata-get db hash "ncols")))
+  (let ((nrows (sampledata-db-metadata-get db hash "nrows"))
+	(ncols (sampledata-db-metadata-get db hash "ncols"))
 	(hash-length (digest-length *blob-hash-digest*)))
     (make-sampledata-db-matrix
      :db db
