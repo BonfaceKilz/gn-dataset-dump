@@ -264,6 +264,13 @@ columns, with DATA.  Return the hash."
 			      collect (sampledata-db-matrix-column-ref
 				       (sampledata-db-matrix db current-matrix-hash) i))))))
 
+(defun sampledata-all-matrices (db)
+  "Return a list of all matrices in DB, newest first."
+  (let ((all-matrix-hashes (sampledata-db-get db "versions")))
+    (mapcar (lambda (i)
+	      (sampledata-db-matrix db (hash-vector-ref all-matrix-hashes i)))
+	    (iota (hash-vector-length all-matrix-hashes)))))
+
 (defun sampledata-db-current-matrix-ref (matrix)
   "Return MATRIX as a 2-D array."
   (let ((array (sampledata-db-matrix-array matrix)))
