@@ -308,6 +308,15 @@ columns, with DATA.  Return the hash."
       (unless (live-key-p db key)
         (cursor-del cursor)))))
 
+(defun find-index (function n)
+  "Return the index between 0 and n-1 (both inclusive) for which
+FUNCTION returns non-nil. If no such index exists, return
+nil. FUNCTION is invoked as (FUNCTION INDEX). The order of invocation
+of FUNCTION is unspecified."
+  (unless (zerop n)
+    (if (funcall function (1- n))
+        (1- n)
+        (find-index function (1- n)))))
 
 (defun hash-in-hash-vector-p (hash hash-vector)
   "Return non-nil if HASH is in HASH-VECTOR. Else, return nil."
