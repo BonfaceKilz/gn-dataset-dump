@@ -331,14 +331,20 @@ columns, with DATA.  Return the hash."
 			   key-hash-prefix
 			   (sampledata-db-get db (hash-vector-ref versions-hash-vector i))))
 			(hash-vector-length versions-hash-vector))))))
+
+(defun import-into-sampledata-db (data db-path)
+  "Import MATRIX which is a sampledata-matrix object into
+DB-PATH."
+  (with-sampledata-db (db db-path :write t)
+    (let* ((hash (sampledata-db-matrix-put db data))
 	   (db-matrix (sampledata-db-matrix db hash)))
       ;; Read written data back and verify.
       (unless (and (all (lambda (i)
-			  (equalp (matrix-row (sampledata-matrix sampledata) i)
+			  (equalp (matrix-row (sampledata-matrix data) i)
 				  (sampledata-db-matrix-row-ref db-matrix i)))
 			(iota (sampledata-db-matrix-nrows db-matrix)))
 		   (all (lambda (i)
-			  (equalp (matrix-column (sampledata-matrix sampledata) i)
+			  (equalp (matrix-column (sampledata-matrix data) i)
 				  (sampledata-db-matrix-column-ref db-matrix i)))
 			(iota (sampledata-db-matrix-ncols db-matrix))))
 	;; Roll back database updates.
