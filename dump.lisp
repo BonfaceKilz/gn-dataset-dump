@@ -264,7 +264,7 @@ columns, with DATA.  Return the hash."
 			      collect (sampledata-db-matrix-column-ref
 				       (sampledata-db-matrix db current-matrix-hash) i))))))
 
-(defun sampledata-all-matrices (db)
+(defun sampledata-db-all-matrices (db)
   "Return a list of all matrices in DB, newest first."
   (let ((all-matrix-hashes (sampledata-db-get db "versions")))
     (mapcar (lambda (i)
@@ -380,7 +380,7 @@ DB-PATH."
 		"Rereading and verifying sampledata matrix written to \"~a\" failed.
 This is a bug. Please report it.
 "
-		sampledata-database)
+		db-path)
 	(uiop:quit 1))
       ;; Set the current matrix.
       (setf (sampledata-db-current-matrix-hash db)
