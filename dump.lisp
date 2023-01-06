@@ -235,10 +235,10 @@ columns, with DATA.  Return the hash."
 	  db
 	  (with-octet-output-stream (stream)
 	    (dotimes (i (sampledata-db-matrix-nrows matrix))
-	      (write-sequence (sampledata-db-matrix-row-ref matrix i)
+	      (write-sequence (cpk:encode (sampledata-db-matrix-row-ref matrix i))
 			      stream))
 	    (dotimes (i (sampledata-db-matrix-ncols matrix))
-	      (write-sequence (sampledata-db-matrix-column-ref matrix i)
+	      (write-sequence (cpk:encode (sampledata-db-matrix-column-ref matrix i))
 			      stream)))
 	  `(("matrix" . ,hash))))))
 
