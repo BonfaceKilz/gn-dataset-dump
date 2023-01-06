@@ -12,7 +12,8 @@
   (:import-from :trivia :lambda-match :match)
   (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
-		:with-cursor :cursor-first :do-cursor :cursor-del :octets-to-uint64))
+		:with-cursor :cursor-first :do-cursor :cursor-del :octets-to-uint64
+   :db-statistics))
 
 (in-package :dump)
 
@@ -385,6 +386,22 @@ This is a bug. Please report it.
       ;; Set the current matrix.
       (setf (sampledata-db-current-matrix-hash db)
 	    hash))))
+
+(defun print-sampledata-db-info (database-directory)
+  (with-sampledata-db (db database-directory)
+    (format t
+	    "Path: ~a~%Versions: ~a~%Keys: ~a~%~%"
+	    database-directory
+	    (length (sampledata-db-all-matrices db))
+	    (getf (db-statistics db)
+		  :entries))
+    (for-each-indexed (lambda (i matrix)
+			(format t "Version ~a
+Dimensions: ~a x ~a~%"
+				(1+ i)
+				(sampledata-db-matrix-nrows matrix)
+				(sampledata-db-matrix-ncols matrix)))
+		      (sampledata-db-all-matrices db))))
 
 
 ;; DEMOS
