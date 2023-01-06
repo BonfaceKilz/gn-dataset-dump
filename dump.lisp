@@ -163,12 +163,12 @@ the database."
 	      (string-to-utf-8-bytes key)
 	      key)))
 
-(defun sampledata-db-put (db bv &optional metadata)
-  "Put BV - a bytevector - into DB.  Associate HEADER, representing the
-name of the columns, with BV.  Return the hash."
-  (let ((hash (bv-hash bv metadata)))
+(defun sampledata-db-put (db data &optional metadata)
+  "Put DATA into DB.  Associate HEADER, representing the name of the
+columns, with DATA.  Return the hash."
+  (let ((hash (bv-hash data metadata)))
     (unless (sampledata-db-get db hash)
-      (put db hash bv)
+      (put db hash data)
       (mapc (lambda-match
 	      ((cons key value)
 	       (put db (metadata-key hash key) value)))
