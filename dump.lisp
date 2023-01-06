@@ -319,21 +319,15 @@ columns, with DATA.  Return the hash."
       (equalp key (string-to-utf-8-bytes "versions"))
       (equalp key (sampledata-db-get db "current"))
       (let ((versions-hash-vector (sampledata-db-get db "versions"))
-            (key-hash-prefix (make-array (digest-length *blob-hash-digest*)
-                                         :element-type '(unsigned-byte 8)
-                                         :displaced-to key)))
-        (or (hash-in-hash-vector-p key-hash-prefix versions-hash-vector)
-            (find-index (lambda (i)
-                          (hash-in-hash-vector-p
-                           key-hash-prefix
-                           (sampledata-db-get db (hash-vector-ref versions-hash-vector i))))
-                        (hash-vector-length versions-hash-vector))))))
-
-(defun import-into-sampledata-db (sampledata sampledata-database)
-  "Import SAMPLEDATA which is a sampledata-matrix object into
-SAMPLEDATA-DATABASE."
-  (with-sampledata-db (db sampledata-database :write t)
-    (let* ((hash (sampledata-db-matrix-put db sampledata))
+	    (key-hash-prefix (make-array (digest-length *blob-hash-digest*)
+					 :element-type '(unsigned-byte 8)
+					 :displaced-to key)))
+	(or (hash-in-hash-vector-p key-hash-prefix versions-hash-vector)
+	    (find-index (lambda (i)
+			  (hash-in-hash-vector-p
+			   key-hash-prefix
+			   (sampledata-db-get db (hash-vector-ref versions-hash-vector i))))
+			(hash-vector-length versions-hash-vector))))))
 	   (db-matrix (sampledata-db-matrix db hash)))
       ;; Read written data back and verify.
       (unless (and (all (lambda (i)
