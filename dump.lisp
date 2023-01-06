@@ -325,6 +325,16 @@ of FUNCTION is unspecified."
         (1- n)
         (find-index function (1- n)))))
 
+(defun for-each-indexed (function list &optional (start 0))
+  "Apply FUNCTION successively on every element of LIST.  FUNCTION is
+invoked as (FUNCTION INDEX ELEMENT) where ELEMENT is an element of
+LIST and INDEX is its index.  START is the index to use for the first
+element."
+  (match list
+    ((list* head tail)
+     (funcall function start head)
+     (for-each-indexed function tail (1+ start)))))
+
 (defun hash-in-hash-vector-p (hash hash-vector)
   "Return non-nil if HASH is in HASH-VECTOR. Else, return nil."
   (find-index (lambda (i)
