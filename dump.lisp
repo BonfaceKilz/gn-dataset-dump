@@ -361,15 +361,16 @@ This is a bug. Please report it.
 	    hash))))
 
 
-;; Dumping an Retriewing Data Examples
+;; DEMOS
+;; Dumping data
+(let ((data (make-sampledata
+	     :matrix (make-array '(2 3)
+				 :initial-contents '((1 2 3) (4 5 6)))
+	     :metadata '(("header" . "Value, Count, SE")))))
+  (import-into-sampledata-db data "/tmp/test-sampledata/"))
 
-(import-into-sampledata-db
- (make-sampledata
-  :matrix (make-array '(2 3)
-		      :initial-contents '((1 10 1) (1 0 1)))
-  :metadata '(("header" . "Value, Count, SE")))
- "/tmp/test-sampledata/")
-
-;; Get current database
+;; Retrieving the current matrix
 (with-sampledata-db (db "/tmp/test-sampledata/" :write t)
   (sampledata-db-current-matrix db))
+
+
