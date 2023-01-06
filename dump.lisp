@@ -407,13 +407,15 @@ Dimensions: ~a x ~a~%"
 ;; DEMOS
 ;; Dumping data
 (let ((data (make-sampledata
-	     :matrix (make-array '(2 3)
-				 :initial-contents '((1 2 3) (4 5 6)))
-	     :metadata '(("header" . "Value, Count, SE")))))
-  (import-into-sampledata-db data "/tmp/test-sampledata/"))
+	     :matrix (make-array '(2 4)
+				 :initial-contents '((1 2 3 "M") (4 5 6 "F")))
+	     :metadata '(("header" . "Value, Count, SE, Sex")))))
+  (import-into-sampledata-db data "/tmp/BXD/10007/"))
 
 ;; Retrieving the current matrix
-(with-sampledata-db (db "/tmp/test-sampledata/" :write t)
+(with-sampledata-db (db "/tmp/BXD/10007/" :write t)
   (sampledata-db-current-matrix db))
+
+(print-sampledata-db-info "/tmp/BXD/10007/")
 
 
