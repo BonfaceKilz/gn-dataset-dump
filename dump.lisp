@@ -251,12 +251,18 @@ columns, with DATA.  Return the hash."
      :db db
      :nrows nrows
      :ncols ncols
-     :array (make-array (list nrows ncols)
-			:element-type '(unsigned-byte 8)
-			:displaced-to read-optimized-blob)
-     :transpose (make-array (list ncols nrows)
-			    :element-type '(unsigned-byte 8)
-			    :displaced-to read-optimized-blob))))
+     :array
+     (make-array
+      (list nrows ncols)
+      :initial-contents (loop for i from 0 to (- nrows 1)
+			      collect (sampledata-db-matrix-row-ref
+				       (sampledata-db-matrix db current-matrix-hash) i)))
+     :transpose
+     (make-array
+      (list ncols nrows)
+      :initial-contents (loop for i from 0 to (- ncols 1)
+			      collect (sampledata-db-matrix-column-ref
+				       (sampledata-db-matrix db current-matrix-hash) i))))))
 
 (defun sampledata-db-current-matrix-ref (matrix)
   "Return MATRIX as a 2-D array."
