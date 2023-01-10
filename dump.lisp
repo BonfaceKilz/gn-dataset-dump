@@ -1,5 +1,5 @@
 (defpackage :dump
-  (:use :common-lisp  :lmdb :cpk)
+  (:use :common-lisp :lmdb :cl-json)
   (:import-from :alexandria :once-only :iota
    :plist-alist :with-gensyms)
   (:import-from :listopia :all :any :split-at)
@@ -10,7 +10,7 @@
    :trim-right :words)
   (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
   (:import-from :trivia :lambda-match :match)
-  (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes)
+  (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes :utf-8-bytes-to-string)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
 		:with-cursor :cursor-first :do-cursor :cursor-del :octets-to-uint64
    :db-statistics))
@@ -30,9 +30,6 @@
 (defvar *blob-hash-digest*
   :sha256)
 
-;; This enables to store objects with mixed types in the matrix.
-(defvar *cpk-encoding*
-  (cons #'cpk:encode (alexandria:compose #'cpk:decode #'mdb-val-to-octets)))
 
 
 ;; Some helper functions
@@ -76,8 +73,7 @@ with a transaction open on DB."
       `(with-env (,env ,database-directory
 		       :if-does-not-exist :create
 		       :map-size (* 100 1024 1024))
-	 (let ((,db (get-db nil :env ,env
-				:value-encoding *cpk-encoding*)))
+	 (let ((,db (get-db nil :env ,env)))
 	   (with-txn (:env ,env :write ,write)
 	     ,@body))))))
 
@@ -94,8 +90,8 @@ of HASH."
   "Write length of BV followed by BV itself to STREAM. The length is
 written as a little endian 64-bit unsigned integer."
   (write-sequence (uint64-to-octets (length bv)) stream)
-  ;; Accomodate strings and floats
-  (write-sequence (cpk:encode bv) stream))
+  ;; Accomodate strings and floats by encoding to json
+  (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string bv)) stream))
 
 (defun hash-vector-length (hash-vector)
   "Return the number of hashes in HASH-VECTOR."
@@ -113,12 +109,7 @@ the hash stream"
 	    ((cons key value)
 	     (write-bytevector-with-length (string-to-utf-8-bytes key)
 					   stream)
-	     (write-bytevector-with-length
-	      (etypecase value
-		(string (string-to-utf-8-bytes value))
-		((unsigned-byte 64) (uint64-to-octets value))
-		((vector (unsigned-byte 8)) value))
-	      stream)))
+	     (write-bytevector-with-length value stream)))
 	  metadata)))
 
 (defun hash-vector-ref (hash-vector n)
@@ -157,12 +148,14 @@ the hash stream"
 ;; Working with sample data matrixes
 
 (defun sampledata-db-get (db key)
-  "Get bytevector with KEY from sampledata DB.  KEY may be a hash or a
-string.  If it is a string, it is encoded into octets before querying
-the database."
-  (g3t db (if (stringp key)
-	      (string-to-utf-8-bytes key)
-	      key)))
+  "Get sampledata with KEY from DB.  KEY may be a hash or a string.  If
+it is a string, it is encoded into octets before querying the
+database."
+  (json:decode-json-from-string
+   (utf-8-bytes-to-string
+    (g3t db (if (stringp key)
+		(string-to-utf-8-bytes key)
+		key)))))
 
 (defun sampledata-db-put (db data &optional metadata)
   "Put DATA into DB.  Associate HEADER, representing the name of the
@@ -213,10 +206,13 @@ columns, with DATA.  Return the hash."
 	db
 	(with-octet-output-stream (stream)
 	  (dotimes (i nrows)
-	    (write-sequence (sampledata-db-put db (matrix-row matrix i))
+	    (write-sequence (sampledata-db-put
+			     db
+			     (string-to-utf-8-bytes (json:encode-json-to-string (matrix-row matrix i))))
 			    stream))
 	  (dotimes (j ncols)
-	    (write-sequence (sampledata-db-put db (matrix-column matrix j))
+	    (write-sequence (sampledata-db-put
+			     db (string-to-utf-8-bytes (json:encode-json-to-string (matrix-column matrix j))))
 			    stream)))
 	`(("nrows" . ,nrows)
 	  ("ncols" . ,ncols)))))))
@@ -236,10 +232,10 @@ columns, with DATA.  Return the hash."
 	  db
 	  (with-octet-output-stream (stream)
 	    (dotimes (i (sampledata-db-matrix-nrows matrix))
-	      (write-sequence (cpk:encode (sampledata-db-matrix-row-ref matrix i))
+	      (write-sequence (json:encode-json-to-string (sampledata-db-matrix-row-ref matrix i))
 			      stream))
 	    (dotimes (i (sampledata-db-matrix-ncols matrix))
-	      (write-sequence (cpk:encode (sampledata-db-matrix-column-ref matrix i))
+	      (write-sequence (json:encode-json-to-string (sampledata-db-matrix-column-ref matrix i))
 			      stream)))
 	  `(("matrix" . ,hash))))))
 
