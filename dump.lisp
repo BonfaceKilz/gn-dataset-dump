@@ -207,8 +207,8 @@ columns, with DATA.  Return the hash."
 
 (defun sampledata-db-matrix (db hash)
   "Return the matrix identified by HASH from sampledata matrix DB."
-  (let ((nrows (sampledata-db-metadata-get db hash "nrows"))
-	(ncols (sampledata-db-metadata-get db hash "ncols"))
+  (let ((nrows (octets-to-uint64 (sampledata-db-metadata-get db hash "nrows")))
+	(ncols (octets-to-uint64 (sampledata-db-metadata-get db hash "ncols")))
 	(hash-length (digest-length *blob-hash-digest*))
 	(decode-fn (alexandria:compose #'json:decode-json-from-string
 				       #'utf-8-bytes-to-string)))
