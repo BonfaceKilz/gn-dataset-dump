@@ -209,7 +209,9 @@ columns, with DATA.  Return the hash."
   "Return the matrix identified by HASH from sampledata matrix DB."
   (let ((nrows (sampledata-db-metadata-get db hash "nrows"))
 	(ncols (sampledata-db-metadata-get db hash "ncols"))
-	(hash-length (digest-length *blob-hash-digest*)))
+	(hash-length (digest-length *blob-hash-digest*))
+	(decode-fn (alexandria:compose #'json:decode-json-from-string
+				       #'utf-8-bytes-to-string)))
     (make-sampledata-db-matrix
      :db db
      :hash hash
@@ -217,10 +219,10 @@ columns, with DATA.  Return the hash."
      :ncols ncols
      :row-pointers (make-array (* nrows hash-length)
 			       :element-type '(unsigned-byte 8)
-			       :displaced-to (sampledata-db-get db hash))
+			       :displaced-to (decode-fn (sampledata-db-get db hash)))
      :column-pointers (make-array (* ncols hash-length)
 				  :element-type '(unsigned-byte 8)
-				  :displaced-to (sampledata-db-get db hash)
+				  :displaced-to (decode-fn (sampledata-db-get db hash))
 				  :displaced-index-offset (* nrows
 							     hash-length)))))
 
