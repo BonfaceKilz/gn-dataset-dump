@@ -180,11 +180,9 @@ the hash stream"
   "Get sampledata with KEY from DB.  KEY may be a hash or a string.  If
 it is a string, it is encoded into octets before querying the
 database."
-  (json:decode-json-from-string
-   (utf-8-bytes-to-string
-    (g3t db (if (stringp key)
-		(string-to-utf-8-bytes key)
-		key)))))
+  (g3t db (if (stringp key)
+	      (string-to-utf-8-bytes key)
+	      key)))
 
 (defun sampledata-db-put (db data &optional metadata)
   "Put DATA into DB.  Associate HEADER, representing the name of the
