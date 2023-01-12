@@ -109,7 +109,12 @@ the hash stream"
 	    ((cons key value)
 	     (write-bytevector-with-length (string-to-utf-8-bytes key)
 					   stream)
-	     (write-bytevector-with-length value stream)))
+	     (write-bytevector-with-length
+	      (etypecase value
+		(string (string-to-utf-8-bytes value))
+		((unsigned-byte 64) (uint64-to-octets value))
+		((vector (unsigned-byte 8)) value))
+	      stream)))
 	  metadata)))
 
 (defun hash-vector-ref (hash-vector n)
