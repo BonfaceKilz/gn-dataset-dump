@@ -261,10 +261,10 @@ columns, with DATA.  Return the hash."
 	  db
 	  (with-octet-output-stream (stream)
 	    (dotimes (i (sampledata-db-matrix-nrows matrix))
-	      (write-sequence (sampledata-db-matrix-row-ref matrix i)
+	      (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string (sampledata-db-matrix-row-ref matrix i)))
 			      stream))
 	    (dotimes (j (sampledata-db-matrix-ncols matrix))
-	      (write-sequence (sampledata-db-matrix-column-ref matrix j)
+	      (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string (sampledata-db-matrix-column-ref matrix j)))
 			      stream)))
 	  `(("matrix" . ,hash))))))
 
