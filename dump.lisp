@@ -271,8 +271,8 @@ columns, with DATA.  Return the hash."
 (defun sampledata-db-current-matrix (db)
   "Return the latest version of the matrix in DB."
   (let* ((current-matrix-hash (sampledata-db-current-matrix-hash db))
-	 (nrows (sampledata-db-metadata-get db current-matrix-hash "nrows"))
-	 (ncols (sampledata-db-metadata-get db current-matrix-hash "ncols")))
+	 (nrows (octets-to-uint64 (sampledata-db-metadata-get db current-matrix-hash "nrows")))
+	 (ncols (octets-to-uint64 (sampledata-db-metadata-get db current-matrix-hash "ncols"))))
     (make-sampledata-db-matrix
      :db db
      :nrows nrows
