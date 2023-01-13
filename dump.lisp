@@ -317,25 +317,27 @@ columns, with DATA.  Return the hash."
   "Return the Ith row of sampledata db MATRIX."
   (let ((db (sampledata-db-matrix-db matrix))
 	(array (sampledata-db-matrix-array matrix)))
-    (if array
-	(matrix-row array i)
-	(json:decode-json-from-string
-	 (utf-8-bytes-to-string
-	  (sampledata-db-get
-	   db
-	   (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))))
+    (coerce (if array
+		(matrix-row array i)
+		(json:decode-json-from-string
+		 (utf-8-bytes-to-string
+		  (sampledata-db-get
+		   db
+		   (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))
+	    'vector)))
 
 (defun sampledata-db-matrix-column-ref (matrix j)
   "Return the Jth row of sampledata db MATRIX."
   (let ((db (sampledata-db-matrix-db matrix))
 	(transpose (sampledata-db-matrix-array matrix)))
-    (if transpose
-	(matrix-row transpose j)
-	(json:decode-json-from-string
-	 (utf-8-bytes-to-string
-	  (sampledata-db-get
-	   db
-	   (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))))
+    (coerce (if transpose
+		(matrix-row transpose j)
+		(json:decode-json-from-string
+		 (utf-8-bytes-to-string
+		  (sampledata-db-get
+		   db
+		   (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))
+	    'vector)))
 
 (defun collect-garbage (db)
   "Delete all keys in DB that are not associated with a live hash."
