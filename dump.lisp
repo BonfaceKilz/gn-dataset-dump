@@ -209,9 +209,7 @@ columns, with DATA.  Return the hash."
   "Return the matrix identified by HASH from sampledata matrix DB."
   (let ((nrows (octets-to-uint64 (sampledata-db-metadata-get db hash "nrows")))
 	(ncols (octets-to-uint64 (sampledata-db-metadata-get db hash "ncols")))
-	(hash-length (digest-length *blob-hash-digest*))
-	(decode-fn (alexandria:compose #'json:decode-json-from-string
-				       #'utf-8-bytes-to-string)))
+	(hash-length (digest-length *blob-hash-digest*)))
     (make-sampledata-db-matrix
      :db db
      :hash hash
@@ -219,12 +217,11 @@ columns, with DATA.  Return the hash."
      :ncols ncols
      :row-pointers (make-array (* nrows hash-length)
 			       :element-type '(unsigned-byte 8)
-			       :displaced-to (decode-fn (sampledata-db-get db hash)))
-     :column-pointers (make-array (* ncols hash-length)
+			       :displaced-to (sampledata-db-get db hash))
+     :column-pointers (make-array ncols
 				  :element-type '(unsigned-byte 8)
-				  :displaced-to (decode-fn (sampledata-db-get db hash))
-				  :displaced-index-offset (* nrows
-							     hash-length)))))
+				  :displaced-to (sampledata-db-get db hash)
+				  :displaced-index-offset (* nrows hash-length)))))
 
 (defun sampledata-db-matrix-put (db matrix)
   "Put sampledata MATRIX into DB and return the hash"
@@ -235,14 +232,17 @@ columns, with DATA.  Return the hash."
 	db
 	(with-octet-output-stream (stream)
 	  (dotimes (i nrows)
-	    (write-sequence (sampledata-db-put
-			     db
-			     (string-to-utf-8-bytes (json:encode-json-to-string (matrix-row matrix i))))
-			    stream))
+	    (write-sequence
+	     (sampledata-db-put
+	      db (string-to-utf-8-bytes
+		  (json:encode-json-to-string (matrix-row matrix i))))
+	     stream))
 	  (dotimes (j ncols)
-	    (write-sequence (sampledata-db-put
-			     db (string-to-utf-8-bytes (json:encode-json-to-string (matrix-column matrix j))))
-			    stream)))
+	    (write-sequence
+	     (sampledata-db-put
+	      db (string-to-utf-8-bytes
+		  (json:encode-json-to-string (matrix-column matrix j))))
+	     stream)))
 	`(("nrows" . ,nrows)
 	  ("ncols" . ,ncols)))))))
 
@@ -261,10 +261,10 @@ columns, with DATA.  Return the hash."
 	  db
 	  (with-octet-output-stream (stream)
 	    (dotimes (i (sampledata-db-matrix-nrows matrix))
-	      (write-sequence (json:encode-json-to-string (sampledata-db-matrix-row-ref matrix i))
+	      (write-sequence (sampledata-db-matrix-row-ref matrix i)
 			      stream))
-	    (dotimes (i (sampledata-db-matrix-ncols matrix))
-	      (write-sequence (json:encode-json-to-string (sampledata-db-matrix-column-ref matrix i))
+	    (dotimes (j (sampledata-db-matrix-ncols matrix))
+	      (write-sequence (sampledata-db-matrix-column-ref matrix j)
 			      stream)))
 	  `(("matrix" . ,hash))))))
 
@@ -319,9 +319,11 @@ columns, with DATA.  Return the hash."
 	(array (sampledata-db-matrix-array matrix)))
     (if array
 	(matrix-row array i)
-	(sampledata-db-get
-	 db
-	 (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))
+	(json:decode-json-from-string
+	 (utf-8-bytes-to-string
+	  (sampledata-db-get
+	   db
+	   (hash-vector-ref (sampledata-db-matrix-row-pointers matrix) i)))))))
 
 (defun sampledata-db-matrix-column-ref (matrix j)
   "Return the Jth row of sampledata db MATRIX."
@@ -329,9 +331,11 @@ columns, with DATA.  Return the hash."
 	(transpose (sampledata-db-matrix-array matrix)))
     (if transpose
 	(matrix-row transpose j)
-	(sampledata-db-get
-	 db
-	 (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))
+	(json:decode-json-from-string
+	 (utf-8-bytes-to-string
+	  (sampledata-db-get
+	   db
+	   (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))))
 
 (defun collect-garbage (db)
   "Delete all keys in DB that are not associated with a live hash."
@@ -360,7 +364,7 @@ element."
     ((list* head tail)
      (funcall function start head)
      (for-each-indexed function tail (1+ start)))))
-
+ 
 (defun hash-in-hash-vector-p (hash hash-vector)
   "Return non-nil if HASH is in HASH-VECTOR. Else, return nil."
   (find-index (lambda (i)
