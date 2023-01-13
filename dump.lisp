@@ -218,7 +218,7 @@ columns, with DATA.  Return the hash."
      :row-pointers (make-array (* nrows hash-length)
 			       :element-type '(unsigned-byte 8)
 			       :displaced-to (sampledata-db-get db hash))
-     :column-pointers (make-array ncols
+     :column-pointers (make-array (* ncols hash-length)
 				  :element-type '(unsigned-byte 8)
 				  :displaced-to (sampledata-db-get db hash)
 				  :displaced-index-offset (* nrows hash-length)))))
