@@ -438,14 +438,22 @@ Dimensions: ~a x ~a~%"
 ;; DEMOS
 ;; Dumping data
 (let ((data (make-sampledata
-	     :matrix (make-array '(2 4)
-				 :initial-contents '((1 2 3 "M") (4 5 6 "F")))
-	     :metadata '(("header" . "Value, Count, SE, Sex")))))
+	     :matrix
+	     (make-array
+	      '(4 4)
+	      :initial-contents
+	      '(("#BXD1" 18 "x" 0)
+		("#BXD12" 16 "x" "x")
+		("#BXD14" 15 "x" "x")
+		("#BXD15" 14 "x" "x")))
+	     :metadata
+	     '(("header" . #("Strain Name" "Value" "SE" "Count" "Sex"))))))
   (import-into-sampledata-db data "/tmp/BXD/10007/"))
 
 ;; Retrieving the current matrix
 (with-sampledata-db (db "/tmp/BXD/10007/" :write t)
-  (sampledata-db-current-matrix db))
+  (sampledata-db-matrix-array
+   (sampledata-db-current-matrix db)))
 
 (print-sampledata-db-info "/tmp/BXD/10007/")
 
