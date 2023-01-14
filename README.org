@@ -1,3 +1,120 @@
 * Introduction
 
-This repository contains Common Lisp code for exporting sample data from a MariaDB database and storing it in an LMDB database.  The data to be exported is identified using RDF and will later be used in fetched directly from GN3.
+This repository contains Common Lisp code for exporting sample data and storing it in an LMDB database.  The data to be exported can be identified using RDF and will later be used directly from GN3.  We provide a basic api for reading this data into a multi-dimensional array and storing it into lmdb as json.
+
+Features:
+
+- Inbuilt Versioning
+- Metadata storage
+- Garbage collection for any unused data
+
+** HOWTO
+
+Sample Data represents data from an experiment.  Here's how that would look like in from of a CSV file:
+
+#+begin_src text
+Strain Name,Value,SE,Count,Sex
+BXD1,18,x,0
+BXD12,16,x,x
+BXD14,15,x,x
+BXD15,14,x,x
+#+end_src
+
+In essence, the above data could be represented as a matrix with the headers being extra metadata that could be related to the above data.  This data could be represented as a vector of vectors which would look like this:
+
+#+begin_src lisp
+(("#BXD1"  18 "x" 0)
+ ("#BXD12" 16 "x" "x")
+ ("#BXD14" 15 "x" "x")
+ ("#BXD15" 14 "x" "x"))
+#+end_src
+
+And the metadata associated with it would be:
+
+#+begin_src lisp
+(("header" . #("Strain Name" "Value" "SE" "Count" "Sex")))
+#+end_src
+
+*** Importing data into a database
+To enter data into a database, use "import-into-sampledata-db-data".  Here's an example of how to do that:
+
+#+begin_src lisp
+(let ((data (make-sampledata
+	     :matrix
+	     (make-array
+	      '(4 4)
+	      :initial-contents
+	      '(("#BXD1" 18 "x" 0)
+		("#BXD12" 16 "x" "x")
+		("#BXD14" 15 "x" "x")
+		("#BXD15" 14 "x" "x")))
+	     :metadata
+	     '(("header" . #("Strain Name" "Value" "SE" "Count" "Sex"))))))
+  (import-into-sampledata-db data "/tmp/BXD/10007/"))
+#+end_src
+
+To read the data back into a matrix object:
+
+#+begin_src lisp
+;; Retrieving the current matrix
+(with-sampledata-db (db "/tmp/BXD/10007/" :write t)
+  (sampledata-db-current-matrix db))
+#+end_src
+
+which outputs the following struct:
+
+#+begin_src lisp
+#S(SAMPLEDATA-DB-MATRIX
+   :DB #<DB NIL {1004DA5B63}>
+   :HASH NIL
+   :NROWS 4
+   :NCOLS 4
+   :ROW-POINTERS NIL
+   :COLUMN-POINTERS NIL
+   :ARRAY #2A(("#BXD1" 18 "x" 0)
+              ("#BXD12" 16 "x" "x")
+              ("#BXD14" 15 "x" "x")
+              ("#BXD15" 14 "x" "x"))
+   :TRANSPOSE #2A(("#BXD1" "#BXD12" "#BXD14" "#BXD15")
+                  (18 16 15 14)
+                  ("x" "x" "x" "x")
+                  (0 "x" "x" "x")))
+#+end_src
+
+To obtain the data:
+
+#+begin_src lisp
+(with-sampledata-db (db "/tmp/BXD/10007/" :write t)
+  (sampledata-db-matrix-array
+   (sampledata-db-current-matrix db)))
+#+end_src
+
+To print information about the database, use the following =print-sampledata-db-info=:
+
+#+begin_src lisp
+(print-sampledata-db-info "/tmp/BXD/10007/")
+#+end_src
+
+which would output something like:
+
+#+begin_src text
+Path: /tmp/BXD/10007/
+Versions: 4
+Keys: 26
+
+Version 1
+Dimensions: 4 x 4
+Version 2
+Dimensions: 2 x 4
+Version 3
+Dimensions: 2 x 4
+Version 4
+Dimensions: 2 x 4	
+#+end_src
+
+*** TODO
+- Dump actual data
+- Make this accessible from the CLI
+- Read access from Python
+- Previous version access
+  
