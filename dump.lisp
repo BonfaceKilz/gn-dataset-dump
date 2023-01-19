@@ -8,7 +8,6 @@
   (:import-from :str
    :concat :contains? :join :s-rest :split :starts-with?
    :trim-right :words)
-  (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
   (:import-from :arrows :-> :->>)
   (:import-from :trivia :lambda-match :match)
   (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes :utf-8-bytes-to-string)
@@ -22,17 +21,8 @@
 
 
 ;; ENV SETTINGS
-
-(defvar *connection-settings*
-  (with-open-file
-      (stream
-       ;; TODO get this from the command line
-       "~/projects/oqo-dump-genenetwork-database/fix-sql-queries/conn.scm")
-    (read stream)))
-
 (defvar *blob-hash-digest*
   :sha256)
-
 
 
 ;; Some helper functions
@@ -41,32 +31,6 @@
 KEY."
   (match (assoc key alist :test test)
     ((cons _ value) value)))
-
-(defun plists->csv (plists)
-  "Convert a list of PLISTS to a CSV string, with the keys of the PLISTS
-being the first row."
-  (let* ((keys (mapcar #'car (plist-alist
-			      (car plists)))) ; get the keys from the first plist
-	 (headers (format nil "~{~A~^,~}" keys))
-	 (rows (mapcar (lambda (it)
-			 (format nil "~{~A~^,~}"
-				 (loop for (key value) on it
-				       by #'cddr
-				       collect value)))
-		       plists)))
-    (format nil "~A~%~{~A~%~}" headers rows)))
-
-(defun fetch-results-from-sql (statement &optional params)
-  (with-connection
-      (conn :mysql
-	    :database-name (assoc-ref *connection-settings* 'sql-database)
-	    :host (assoc-ref *connection-settings* 'sql-host)
-	    :port (assoc-ref *connection-settings* 'sql-port)
-	    :username (assoc-ref *connection-settings* 'sql-username)
-	    :password (assoc-ref *connection-settings* 'sql-password))
-    (let* ((query (prepare conn statement))
-	   (query (execute query params)))
-      (fetch-all query))))
 
 (defmacro with-sampledata-db ((db database-directory &key write) &body body)
   "Create a new LMDB database in DATABASE-DIRECTORY and execute BODY
