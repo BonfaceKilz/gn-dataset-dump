@@ -9,6 +9,7 @@
    :concat :contains? :join :s-rest :split :starts-with?
    :trim-right :words)
   (:import-from :cl-dbi :with-connection :prepare :execute :fetch-all :fetch)
+  (:import-from :arrows :-> :->>)
   (:import-from :trivia :lambda-match :match)
   (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes :utf-8-bytes-to-string)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
@@ -89,9 +90,16 @@ of HASH."
 (defun write-bytevector-with-length (bv stream)
   "Write length of BV followed by BV itself to STREAM. The length is
 written as a little endian 64-bit unsigned integer."
-  (write-sequence (uint64-to-octets (length bv)) stream)
+  (write-sequence (-> bv
+		      length
+		      uint64-to-octets)
+		  stream)
   ;; Accomodate strings and floats by encoding to json
-  (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string bv)) stream))
+  (write-sequence (-> bv
+		      json:encode-json-to-string
+		      string-to-utf-8-bytes)
+		  stream))
+
 
 (defun hash-vector-length (hash-vector)
   "Return the number of hashes in HASH-VECTOR."
@@ -234,14 +242,18 @@ columns, with DATA.  Return the hash."
 	  (dotimes (i nrows)
 	    (write-sequence
 	     (sampledata-db-put
-	      db (string-to-utf-8-bytes
-		  (json:encode-json-to-string (matrix-row matrix i))))
+	      db (->> i
+		      (matrix-row matrix)
+		      json:encode-json-to-string
+		      string-to-utf-8-bytes))
 	     stream))
 	  (dotimes (j ncols)
 	    (write-sequence
 	     (sampledata-db-put
-	      db (string-to-utf-8-bytes
-		  (json:encode-json-to-string (matrix-column matrix j))))
+	      db (->> j
+		     (matrix-column matrix)
+		     json:encode-json-to-string
+		     string-to-utf-8-bytes))
 	     stream)))
 	`(("nrows" . ,nrows)
 	  ("ncols" . ,ncols)))))))
@@ -261,11 +273,19 @@ columns, with DATA.  Return the hash."
 	  db
 	  (with-octet-output-stream (stream)
 	    (dotimes (i (sampledata-db-matrix-nrows matrix))
-	      (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string (sampledata-db-matrix-row-ref matrix i)))
-			      stream))
+	      (write-sequence
+	       (->> i
+		    (sampledata-db-matrix-row-ref matrix)
+		    json:encode-json-to-string
+		    string-to-utf-8-bytes)
+	       stream))
 	    (dotimes (j (sampledata-db-matrix-ncols matrix))
-	      (write-sequence (string-to-utf-8-bytes (json:encode-json-to-string (sampledata-db-matrix-column-ref matrix j)))
-			      stream)))
+	      (write-sequence
+	       (->> j
+		    (sampledata-db-matrix-column-ref matrix)
+		    json:encode-json-to-string
+		    string-to-utf-8-bytes)
+	       stream)))
 	  `(("matrix" . ,hash))))))
 
 (defun sampledata-db-current-matrix (db)
