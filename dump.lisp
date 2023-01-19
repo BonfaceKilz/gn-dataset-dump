@@ -471,26 +471,33 @@ Dimensions: ~a x ~a~%"
 		      (sampledata-db-all-matrices db))))
 
 
-;; DEMOS
-;; Dumping data
-(let ((data (make-sampledata
-	     :matrix
-	     (make-array
-	      '(4 4)
-	      :initial-contents
-	      '(("#BXD1" 18 "x" 0)
-		("#BXD12" 16 "x" "x")
-		("#BXD14" 15 "x" "x")
-		("#BXD15" 14 "x" "x")))
-	     :metadata
-	     '(("header" . #("Strain Name" "Value" "SE" "Count" "Sex"))))))
-  (import-into-sampledata-db data "/tmp/BXD/10007/"))
 
-;; Retrieving the current matrix
-(with-sampledata-db (db "/tmp/BXD/10007/" :write t)
-  (sampledata-db-matrix-array
-   (sampledata-db-current-matrix db)))
+(defun main ()
+  (match (uiop:command-line-arguments)
+    ((list "import" json-data dump-dir)
+     (fad:walk-directory
+      json-data
+      (lambda (el)
+	(let* ((dataset-name
+		 (-> el pathname-directory last car))
+	       (db-path
+		 (make-pathname
+		  :defaults dump-dir
+		  :directory (append (pathname-directory dump-dir)
+				     (list dataset-name (pathname-name el))))))
+	  (format t "Dumping: ~a~%" db-path)
+	  (import-into-sampledata-db
+	   (json-file->sampledata (namestring el))
+	   db-path)))))
+    ((list "info" sampledata-database)
+     (print-sampledata-db-info
+      (fad:pathname-as-directory sampledata-database)))
+    (_ (format t "Usage:
 
-(print-sampledata-db-info "/tmp/BXD/10007/")
+Import JSON-DATA into DUMP-DIR:
+    dump import JSON-DATA/ DUMP-DIR/
 
-
+Print info about SAMPLEDATA-DATABASE:
+    dump info SAMPLEDATA-DATABASE
+")
+       (uiop:quit 1))))
