@@ -14,7 +14,9 @@
   (:import-from :trivial-utf-8 :string-to-utf-8-bytes :write-utf-8-bytes :utf-8-bytes-to-string)
   (:import-from :lmdb :with-env :*env* :get-db :with-txn :put :g3t :uint64-to-octets
 		:with-cursor :cursor-first :do-cursor :cursor-del :octets-to-uint64
-   :db-statistics))
+   :db-statistics)
+  (:export
+   :main))
 
 (in-package :dump)
 
