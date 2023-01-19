@@ -1,5 +1,5 @@
 (defpackage :dump
-  (:use :common-lisp :lmdb :cl-json)
+  (:use :common-lisp :cl-json)
   (:import-from :alexandria :once-only :iota
    :plist-alist :with-gensyms)
   (:import-from :listopia :all :any :split-at)
