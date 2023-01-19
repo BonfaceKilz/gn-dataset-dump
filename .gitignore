@@ -20,3 +20,4 @@
 # Ignore SLIME files
 *#
 *.#*
+dump
