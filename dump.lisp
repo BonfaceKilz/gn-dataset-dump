@@ -359,6 +359,20 @@ columns, with DATA.  Return the hash."
 		   (hash-vector-ref (sampledata-db-matrix-column-pointers matrix) j)))))
 	    'vector)))
 
+(defun json-file->sampledata (file)
+  "Convert FILE intoSAMPLEDATA."
+  (let* ((json-data (json:decode-json-from-source
+		     (pathname file)))
+	 (headers (assoc-ref json-data :headers))
+	 (matrix (assoc-ref json-data :data))
+	 (nrows (length matrix))
+	 (ncols (length (first matrix))))
+    (make-sampledata
+     :matrix
+     (make-array (list nrows ncols)
+		 :initial-contents matrix)
+     :metadata `(("header" . ,headers)))))
+
 (defun collect-garbage (db)
   "Delete all keys in DB that are not associated with a live hash."
   (with-cursor (cursor db)
