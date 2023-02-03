@@ -197,32 +197,47 @@ columns, with DATA.  Return the hash."
 				  :displaced-to (sampledata-db-get db hash)
 				  :displaced-index-offset (* nrows hash-length)))))
 
-(defun sampledata-db-matrix-put (db matrix)
+(defun sampledata-db-matrix-put (db db-matrix)
   "Put sampledata MATRIX into DB and return the hash"
-  (let ((matrix (sampledata-matrix matrix)))
+  (let* ((hash-length (digest-length *blob-hash-digest*))
+	 (matrix (sampledata-matrix db-matrix))
+	 (metadata (->> (sampledata-metadata db-matrix)
+			json:encode-json-alist-to-string)))
     (match (array-dimensions matrix)
       ((list nrows ncols)
-       (sampledata-db-put
-	db
-	(with-octet-output-stream (stream)
-	  (dotimes (i nrows)
-	    (write-sequence
-	     (sampledata-db-put
-	      db (->> i
-		      (matrix-row matrix)
-		      json:encode-json-to-string
-		      string-to-utf-8-bytes))
-	     stream))
-	  (dotimes (j ncols)
-	    (write-sequence
-	     (sampledata-db-put
-	      db (->> j
-		     (matrix-column matrix)
-		     json:encode-json-to-string
-		     string-to-utf-8-bytes))
-	     stream)))
-	`(("nrows" . ,nrows)
-	  ("ncols" . ,ncols)))))))
+       (let* ((data
+		(with-octet-output-stream (stream)
+		  (dotimes (i nrows)
+		    (write-sequence
+		     (sampledata-db-put
+		      db (->> i
+			      (matrix-row matrix)
+			      json:encode-json-to-string
+			      string-to-utf-8-bytes))
+		     stream))
+		  (dotimes (j ncols)
+		    (write-sequence
+		     (sampledata-db-put
+		      db (->> j
+			      (matrix-column matrix)
+			      json:encode-json-to-string
+			      string-to-utf-8-bytes))
+		     stream))))
+	      (row-pointers (make-array (* nrows hash-length)
+					:element-type '(unsigned-byte 8)
+					:displaced-to data))
+	      (column-pointers (make-array (* ncols hash-length)
+					   :element-type '(unsigned-byte 8)
+					   :displaced-to data
+					   :displaced-index-offset (* nrows hash-length))))
+	 (sampledata-db-put
+	  db
+	  data
+	  `(("nrows" . ,nrows)
+	    ("ncols" . ,ncols)
+	    ("metadata" . ,metadata)
+	    ("row-pointers" . ,row-pointers)
+	    ("column-pointers" . ,column-pointers))))))))
 
 (defun (setf sampledata-db-current-matrix-hash) (hash db)
   "Set HASH as the current matrix in the sampledata matrix DB."
