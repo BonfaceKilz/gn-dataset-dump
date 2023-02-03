@@ -47,7 +47,7 @@ with a transaction open on DB."
 
 ;; Hash functions and operations on bytevectors
 (defun metadata-key (hash key)
-  "Return the database key to retrieve metadata KEY associted with blob
+  "Return the database key to retrieve metadata KEY associated with blob
 of HASH."
   (concatenate '(vector (unsigned-byte 8))
 	       hash
@@ -326,7 +326,7 @@ columns, with DATA.  Return the hash."
 	    'vector)))
 
 (defun json-file->sampledata (file)
-  "Convert FILE intoSAMPLEDATA."
+  "Convert FILE to SAMPLEDATA."
   (let* ((json-data (json:decode-json-from-source
 		     (pathname file)))
 	 (headers (assoc-ref json-data :headers))
