@@ -2,6 +2,7 @@
  (list "sbcl"
        "sbcl-alexandria"
        "sbcl-arrows"
+       "sbcl-cl-conspack"
        "sbcl-cl-fad"
        "sbcl-cl-json"
        "sbcl-cl-str"
